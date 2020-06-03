@@ -12,7 +12,6 @@ A keyboard interrupt (Ctrl-C) can be used to stop the analysis process and immed
 
 # TODO: import os.path
 
-import ujson as json
 import argparse
 import signal
 import sys
@@ -21,6 +20,10 @@ import datetime as dt
 # import Google NLP components
 from google.cloud import language
 from google.cloud.language import enums, types
+
+# other imports
+import ujson as json
+# TODO: from tinydb import TinyDB, Query
 
 # Globals
 stdoutOnly = False
