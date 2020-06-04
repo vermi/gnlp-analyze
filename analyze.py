@@ -78,7 +78,7 @@ def sigintHandler(signal, frame):
     sys.exit(0)
 
 
-def gnlp_analyze(document, isFile=True) -> dict:
+def gnlp_sentiment(document, isFile=True) -> dict:
     client = language.LanguageServiceClient()
 
     if not isFile:
@@ -87,7 +87,27 @@ def gnlp_analyze(document, isFile=True) -> dict:
         text = unmark(document["text"]).replace("\n", " ").lower()
 
     request = types.Document(content=text, type=enums.Document.Type.PLAIN_TEXT)
-    response = client.analyze_syntax(document=request)
+    response = client.analyze_sentiment(document=request, encoding_type="UTF32")
+
+    sentiment = response.document_sentiment
+    data = {
+        "score": sentiment.score,
+        "magnitude": sentiment.magnitude,
+    }
+
+    return data
+
+
+def gnlp_syntax(document, isFile=True) -> dict:
+    client = language.LanguageServiceClient()
+
+    if not isFile:
+        text = document.lower()
+    else:
+        text = unmark(document["text"]).replace("\n", " ").lower()
+
+    request = types.Document(content=text, type=enums.Document.Type.PLAIN_TEXT)
+    response = client.analyze_syntax(document=request, encoding_type="UTF32")
 
     tokens = {}
     sorted_tok = {}
@@ -106,12 +126,7 @@ def gnlp_analyze(document, isFile=True) -> dict:
     for k in sorted_keys:
         sorted_tok[k] = tokens[k]
 
-    data = {}
-
-    if not isFile:
-        data["original"] = document
-
-    data["syntax"] = {
+    data = {
         "sentences": len(response.sentences),
         "token_count": len(response.tokens),
         "tokens": sorted_tok,
@@ -133,27 +148,36 @@ def analyze_file(fpath):
     posts_table = db.table("posts")
     comments_table = db.table("comments")
 
-    with Bar("Analyzing corpus syntax", max=len(posts_table) + len(comments_table)) as bar:
+    with Bar("Analyzing corpus", max=len(posts_table) + len(comments_table)) as bar:
         for document in posts_table.all():
             if document["text"] != "":
-                result = gnlp_analyze(document)
+                syntax = gnlp_syntax(document)
+                sentiment = gnlp_sentiment(document)
                 posts_table.update(
-                    result, doc_ids=[document.doc_id],
+                    {"syntax": syntax, "sentiment": sentiment},
+                    doc_ids=[document.doc_id],
                 )
 
             bar.next()
 
         for document in comments_table.all():
             if document["text"] != "":
-                result = gnlp_analyze(document)
+                syntax = gnlp_syntax(document)
+                sentiment = gnlp_sentiment(document)
                 comments_table.update(
-                    result, doc_ids=[document.doc_id],
+                    {"syntax": syntax, "sentiment": sentiment},
+                    doc_ids=[document.doc_id],
                 )
             bar.next()
 
 
 def analyze_blob(text):
-    result = gnlp_analyze(text, isFile=False)
+    text = text.replace('\\"', '"')
+
+    result = {}
+    result["original"] = text
+    result["syntax"] = gnlp_syntax(text, isFile=False)
+    result["sentiment"] = gnlp_sentiment(text, isFile=False)
     writeJson(result)
 
 
