@@ -141,7 +141,7 @@ def analyze_file(fpath):
         exit()
 
     db = TinyDB(fpath, indent=4)
-    if not db.contains(Query().subreddit):
+    if not db.contains(Query().subreddit.exists()):
         print("\n! Incorrect database type. Exiting.")
         exit()
 
